@@ -10,6 +10,7 @@ import (
 
 type IComicUsecase interface {
 	GetComicByID(ctx context.Context, id string) (*entity.Comic, error)
+	GetAllComics(ctx context.Context) ([]*entity.Comic, error)
 }
 
 type comicUsecase struct {
@@ -25,4 +26,8 @@ func NewComicUsecase(repo repository.IComicRepository) IComicUsecase {
 
 func (u *comicUsecase) GetComicByID(ctx context.Context, id string) (*entity.Comic, error) {
 	return u.comicRepo.FindByID(ctx, id)
+}
+
+func (u *comicUsecase) GetAllComics(ctx context.Context) ([]*entity.Comic, error) {
+	return u.comicRepo.FindAll(ctx)
 }

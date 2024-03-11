@@ -7,4 +7,5 @@ import (
 
 func NewComicHandler(e *echo.Echo, cc controller.IComicController) {
 	e.GET("/summaries/:id", cc.GetComic)
+	e.GET("/summaries", cc.GetAllComics)
 }

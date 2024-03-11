@@ -8,6 +8,7 @@ import (
 
 type IComicController interface {
 	GetComic(c echo.Context) error
+	GetAllComics(c echo.Context) error
 }
 
 type comicController struct {
@@ -25,4 +26,12 @@ func (cc *comicController) GetComic(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, comic)
+}
+
+func (cc *comicController) GetAllComics(c echo.Context) error {
+	comics, err := cc.cu.GetAllComics(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, comics)
 }

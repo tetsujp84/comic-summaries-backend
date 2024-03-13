@@ -6,8 +6,6 @@ import (
 	"comic-summaries/entity"
 	"context"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/joho/godotenv"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -26,13 +24,6 @@ type comicRepository struct {
 
 // NewComicRepository は新しいcomicRepositoryインスタンスを生成します。
 func NewComicRepository() IComicRepository {
-	// デバッグのため強制終了
-	if os.Getenv("GO_ENV") == "dev" {
-		err := godotenv.Load()
-		if err != nil {
-			log.Fatalln(err)
-		}
-	}
 	// 開発時のローカルDBエンドポイント
 	dynamodbEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
 

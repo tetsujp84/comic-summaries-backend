@@ -5,6 +5,9 @@ import (
 	"comic-summaries/handler"
 	"comic-summaries/repository"
 	"comic-summaries/usecase"
+	"github.com/joho/godotenv"
+	"log"
+	"os"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -14,9 +17,23 @@ func main() {
 	// Echoインスタンスの作成
 	e := echo.New()
 
+	// デバッグのため強制終了
+	if os.Getenv("GO_ENV") == "dev" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatalln(err)
+		}
+	}
+
 	// ミドルウェアの設定
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+
+	frontendEndPoint := os.Getenv("FORNTEND_ENDPOINT")
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{frontendEndPoint}, // Reactアプリのオリジン
+		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
+	}))
 
 	// リポジトリのインスタンス化
 	// DynamoDBを使用する場合は、ここでDynamoDBクライアントを初期化してリポジトリに渡す

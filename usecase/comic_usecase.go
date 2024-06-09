@@ -11,6 +11,7 @@ import (
 type IComicUsecase interface {
 	GetComicByID(ctx context.Context, id string) (*entity.Comic, error)
 	GetAllComics(ctx context.Context) ([]*entity.Comic, error)
+	SearchComicsByTitle(ctx context.Context, title string) ([]*entity.Comic, error)
 }
 
 type comicUsecase struct {
@@ -30,4 +31,8 @@ func (u *comicUsecase) GetComicByID(ctx context.Context, id string) (*entity.Com
 
 func (u *comicUsecase) GetAllComics(ctx context.Context) ([]*entity.Comic, error) {
 	return u.comicRepo.FindAll(ctx)
+}
+
+func (u *comicUsecase) SearchComicsByTitle(ctx context.Context, title string) ([]*entity.Comic, error) {
+	return u.comicRepo.FindByTitle(ctx, title)
 }

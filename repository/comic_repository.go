@@ -16,6 +16,7 @@ import (
 type IComicRepository interface {
 	FindByID(ctx context.Context, id string) (*entity.Comic, error)
 	FindAll(ctx context.Context) ([]*entity.Comic, error)
+	FindByTitle(ctx context.Context, title string) ([]*entity.Comic, error)
 }
 
 type comicRepository struct {
@@ -66,6 +67,37 @@ func (r *comicRepository) FindByID(ctx context.Context, id string) (*entity.Comi
 func (r *comicRepository) FindAll(ctx context.Context) ([]*entity.Comic, error) {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String("ComicSummaries"),
+	}
+
+	result, err := r.db.ScanWithContext(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	comics := make([]*entity.Comic, 0)
+	for _, item := range result.Items {
+		comic := new(entity.Comic)
+		if err := dynamodbattribute.UnmarshalMap(item, comic); err != nil {
+			return nil, err
+		}
+		comics = append(comics, comic)
+	}
+
+	return comics, nil
+}
+
+func (r *comicRepository) FindByTitle(ctx context.Context, title string) ([]*entity.Comic, error) {
+	input := &dynamodb.ScanInput{
+		TableName:        aws.String("ComicSummaries"),
+		FilterExpression: aws.String("contains(#title, :title)"),
+		ExpressionAttributeNames: map[string]*string{
+			"#title": aws.String("Title"),
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":title": {
+				S: aws.String(title),
+			},
+		},
 	}
 
 	result, err := r.db.ScanWithContext(ctx, input)

@@ -1,3 +1,5 @@
 .env
 .vscode
 .DS_Store
+dynamodb_local_data/shared-local-instance.db
+images/*

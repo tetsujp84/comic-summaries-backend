@@ -35,6 +35,9 @@ func main() {
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
 	}))
 
+	// 静的ファイルの設定
+	e.Static("/images", "images")
+
 	// リポジトリのインスタンス化
 	// DynamoDBを使用する場合は、ここでDynamoDBクライアントを初期化してリポジトリに渡す
 	comicRepo := repository.NewComicRepository()

@@ -10,6 +10,7 @@ type IComicController interface {
 	GetComic(c echo.Context) error
 	GetAllComics(c echo.Context) error
 	SearchComics(c echo.Context) error
+	Echo(c echo.Context) error
 }
 
 type comicController struct {
@@ -47,4 +48,8 @@ func (cc *comicController) SearchComics(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, comics)
+}
+
+func (cc *comicController) Echo(c echo.Context) error {
+	return c.String(http.StatusOK, "Hello, World!")
 }

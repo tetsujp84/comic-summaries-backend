@@ -5,6 +5,7 @@ package repository
 import (
 	"comic-summaries/entity"
 	"context"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"os"
 
@@ -23,14 +24,13 @@ type comicRepository struct {
 	db *dynamodb.DynamoDB
 }
 
-// NewComicRepository は新しいcomicRepositoryインスタンスを生成します。
 func NewComicRepository() IComicRepository {
-	// 開発時のローカルDBエンドポイント
 	dynamodbEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
 
 	sess := session.Must(session.NewSession(&aws.Config{
-		Region:   aws.String("ap-northeast-1"),
-		Endpoint: aws.String(dynamodbEndpoint),
+		Region:      aws.String(os.Getenv("AWS_REGION")),
+		Endpoint:    aws.String(dynamodbEndpoint),
+		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), ""),
 	}))
 
 	db := dynamodb.New(sess)

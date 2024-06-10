@@ -21,7 +21,7 @@ import (
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func main() {
+func adder() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
@@ -173,7 +173,7 @@ func getString(data map[string]interface{}, key string) string {
 	return ""
 }
 
-func storeComicData(mangaData []Comic) {
+func storeComicData(mangaData []entity.Comic) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion("us-west-2"),
 		config.WithEndpointResolver(aws.EndpointResolverFunc(

@@ -51,5 +51,9 @@ func main() {
 	handler.NewComicHandler(e, comicController)
 
 	// サーバーの起動
-	e.Logger.Fatal(e.Start(":1323"))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "1323" // デフォルトポート
+	}
+	e.Logger.Fatal(e.Start(":" + port))
 }

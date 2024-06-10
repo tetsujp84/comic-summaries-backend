@@ -29,7 +29,7 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	frontendEndPoint := os.Getenv("FORNTEND_ENDPOINT")
+	frontendEndPoint := os.Getenv("FRONTEND_ENDPOINT")
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{frontendEndPoint}, // Reactアプリのオリジン
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},

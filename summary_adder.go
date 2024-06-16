@@ -25,6 +25,7 @@ import (
 )
 
 const cloudFrontURL = "https://d3pqvcltup9bej.cloudfront.net"
+const prompt = "あなたは漫画のタイトルを入力として受け取り、以下の情報を提供します。\n・あらすじ（Synopsis）\n・ジャンル（Genre）\n・登場キャラクター（Characters）\n・魅力的な要素（Attraction）\n・ネタバレ、重要な分岐点や驚きの事実、物語の結末（Spoilers）\nこれらをJson形式にして出力してください。\nJson形式は具体的には以下となります。\n{\n    \"Synopsis\":\"あらすじ\",\n    \"Genre\":\"ジャンル\",\n    \"Characters\":\"キャラクターA、キャラクターB、キャラクターC\",\n    \"Attraction\":\"魅力的な要素\",\n    \"Spoilers\":\"ネタバレ、重要な分岐点や驚きの事実、物語の結末\"\n}\n\n出力にあたってCharactersは主要なキャラクター名をカンマ区切りとし、文字列で出力してください。キャラクターの魅力的な要素がある場合はAttractionに記述し、もしそれが物語における重要な要素であったりネタバレに値する場合はSpoilersに記述するようにしてください。\n文字数に関する制限は以下ですが、自然で惹きつける文章になることを優先し、文字数が制限より前後してしまってもかまいません。\nあらすじは100文字以上で構成してください。\n魅力的な要素は300文字以上で構成してください。\nネタバレ、重要な分岐点や驚きの事実は1000文字以上で構成してください。\nなお、これらは全て固有名詞を除いて日本語で出力してください。"
 
 func main() {
 	err := godotenv.Load()
@@ -165,7 +166,7 @@ func getComicSummaries(titles []string, imageUrls []string, apiKey string) []ent
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "system",
-					Content: "あなたは与えられた漫画のタイトルに対してあらすじを提供するように求められました。あらすじの他にも、漫画のジャンル、キャラクター、魅力的な要素、および結論を含めることができます。与えられたタイトルに対して、「Synopsis」「Attraction」「Spoilers」「Genre」「Characters」を決定し、それらをJson形式にして出力してください。なお、Charactersは主要なキャラクター名をカンマ区切りとし、文字列で出力してください。なお、これらは全て固有名詞を除いて日本語で出力してください。",
+					Content: prompt,
 				},
 				{
 					Role:    "user",

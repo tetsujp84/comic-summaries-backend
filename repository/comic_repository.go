@@ -16,8 +16,9 @@ import (
 
 type IComicRepository interface {
 	FindByID(ctx context.Context, id string) (*entity.Comic, error)
-	FindAll(ctx context.Context) ([]*entity.Comic, error)
+	FindAll(ctx context.Context, limit int, lastEvaluatedKey map[string]*dynamodb.AttributeValue) ([]*entity.Comic, map[string]*dynamodb.AttributeValue, error)
 	FindByTitle(ctx context.Context, title string) ([]*entity.Comic, error)
+	GetTotalCount(ctx context.Context) (int, error)
 }
 
 type comicRepository struct {
@@ -64,26 +65,28 @@ func (r *comicRepository) FindByID(ctx context.Context, id string) (*entity.Comi
 	return comic, nil
 }
 
-func (r *comicRepository) FindAll(ctx context.Context) ([]*entity.Comic, error) {
+func (r *comicRepository) FindAll(ctx context.Context, limit int, lastEvaluatedKey map[string]*dynamodb.AttributeValue) ([]*entity.Comic, map[string]*dynamodb.AttributeValue, error) {
 	input := &dynamodb.ScanInput{
-		TableName: aws.String("ComicSummaries"),
+		TableName:         aws.String("ComicSummaries"),
+		Limit:             aws.Int64(int64(limit)),
+		ExclusiveStartKey: lastEvaluatedKey,
 	}
 
 	result, err := r.db.ScanWithContext(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	comics := make([]*entity.Comic, 0)
 	for _, item := range result.Items {
 		comic := new(entity.Comic)
 		if err := dynamodbattribute.UnmarshalMap(item, comic); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		comics = append(comics, comic)
 	}
 
-	return comics, nil
+	return comics, result.LastEvaluatedKey, nil
 }
 
 func (r *comicRepository) FindByTitle(ctx context.Context, title string) ([]*entity.Comic, error) {
@@ -115,4 +118,18 @@ func (r *comicRepository) FindByTitle(ctx context.Context, title string) ([]*ent
 	}
 
 	return comics, nil
+}
+
+func (r *comicRepository) GetTotalCount(ctx context.Context) (int, error) {
+	input := &dynamodb.ScanInput{
+		TableName: aws.String("ComicSummaries"),
+		Select:    aws.String("COUNT"),
+	}
+
+	result, err := r.db.ScanWithContext(ctx, input)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(*result.Count), nil
 }

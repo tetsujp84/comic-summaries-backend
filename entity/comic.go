@@ -2,7 +2,7 @@ package entity
 
 // Comic は漫画のエンティティを表します。
 type Comic struct {
-	ID         string `json:"id" dynamodbav:"ID"`
+	ID         int    `json:"id" dynamodbav:"ID"`
 	Title      string `json:"title" dynamodbav:"Title"`
 	Synopsis   string `json:"synopsis" dynamodbav:"Synopsis"`
 	Attraction string `json:"attraction" dynamodbav:"Attraction"`

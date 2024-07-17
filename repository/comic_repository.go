@@ -5,13 +5,13 @@ package repository
 import (
 	"comic-summaries/entity"
 	"context"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"os"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+	"log"
+	"os"
 )
 
 type IComicRepository interface {
@@ -45,14 +45,16 @@ func (r *comicRepository) FindByID(ctx context.Context, id string) (*entity.Comi
 		TableName: aws.String("ComicSummaries"),
 		Key: map[string]*dynamodb.AttributeValue{
 			"ID": {
-				S: aws.String(id),
+				N: aws.String(id),
 			},
 		},
 	}
+
 	result, err := r.db.GetItemWithContext(ctx, input)
 	if err != nil {
 		return nil, err
 	}
+
 	// データが見つからなかった場合
 	if result.Item == nil {
 		return nil, nil

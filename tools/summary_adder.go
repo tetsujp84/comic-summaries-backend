@@ -1,5 +1,9 @@
 //go:build summary_adder
 
+// 取得してローカルのDBに追加する仕組み
+// NOTE:CSV→DynamoDBのほうが汎用性があること、Titleのソートキー化をやめたため正常に追加できなくなっていることから使用しない
+// TitleをGSIのキーに使用すべき
+
 package main
 
 import (
@@ -12,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -25,17 +30,24 @@ import (
 )
 
 const cloudFrontURL = "https://d3pqvcltup9bej.cloudfront.net"
-const prompt = "あなたは漫画のタイトルを入力として受け取り、以下の情報を提供します。\n・あらすじ（Synopsis）\n・ジャンル（Genre）\n・登場キャラクター（Characters）\n・魅力的な要素（Attraction）\n・ネタバレ、重要な分岐点や驚きの事実、物語の結末（Spoilers）\nこれらをJson形式にして出力してください。\nJson形式は具体的には以下となります。\n{\n    \"Synopsis\":\"あらすじ\",\n    \"Genre\":\"ジャンル\",\n    \"Characters\":\"キャラクターA、キャラクターB、キャラクターC\",\n    \"Attraction\":\"魅力的な要素\",\n    \"Spoilers\":\"ネタバレ、重要な分岐点や驚きの事実、物語の結末\"\n}\n\n出力にあたってCharactersは主要なキャラクター名をカンマ区切りとし、文字列で出力してください。キャラクターの魅力的な要素がある場合はAttractionに記述し、もしそれが物語における重要な要素であったりネタバレに値する場合はSpoilersに記述するようにしてください。\n文字数に関する制限は以下ですが、自然で惹きつける文章になることを優先し、文字数が制限より前後してしまってもかまいません。\nあらすじは100文字以上で構成してください。\n魅力的な要素は300文字以上で構成してください。\nネタバレ、重要な分岐点や驚きの事実は1000文字以上で構成してください。\nなお、これらは全て固有名詞を除いて日本語で出力してください。"
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Load("../.env")
 	if err != nil {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	popularTitles, imagePaths := scrapeComicTitlesAndImages("https://comic.k-manga.jp/search/magazine/43", 50)
-	mangaData := getComicSummaries(popularTitles, imagePaths, os.Getenv("OPENAI_API_KEY"))
-	storeComicData(mangaData)
+	prompt, err := os.ReadFile("prompt.txt")
+	if err != nil {
+		log.Fatalf("Error reading prompt file: %v", err)
+	}
+
+	// forでhttps://comic.k-manga.jp/search/magazine/43?search_option%5Bsort%5D=popular&page=1のpageを1から11まで回す
+	for i := 1; i < 11; i++ {
+		popularTitles, imagePaths := scrapeComicTitlesAndImages("https://comic.k-manga.jp/search/magazine/43?search_option%5Bsort%5D=popular&page="+fmt.Sprintf("%d", i), 50)
+		mangaData := getComicSummaries(popularTitles, imagePaths, string(prompt), os.Getenv("OPENAI_API_KEY"))
+		storeComicData(mangaData)
+	}
 }
 
 func scrapeComicTitlesAndImages(url string, count int) ([]string, []string) {
@@ -148,7 +160,7 @@ func downloadImageAndUploadToS3(url string, s3Client *s3.Client, bucketName stri
 	return s3Url, nil
 }
 
-func getComicSummaries(titles []string, imageUrls []string, apiKey string) []entity.Comic {
+func getComicSummaries(titles []string, imageUrls []string, prompt string, apiKey string) []entity.Comic {
 	client := openai.NewClient(apiKey)
 
 	// S3クライアントの設定
@@ -160,9 +172,10 @@ func getComicSummaries(titles []string, imageUrls []string, apiKey string) []ent
 	bucketName := "comic-summaries"
 
 	var mangaData []entity.Comic
+	// TODO:getComicSummariesを複数実行するとIDが被ってしまう
 	for i, title := range titles {
 		req := openai.ChatCompletionRequest{
-			Model: openai.GPT3Dot5Turbo,
+			Model: openai.GPT4o,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    "system",
@@ -173,7 +186,11 @@ func getComicSummaries(titles []string, imageUrls []string, apiKey string) []ent
 					Content: title,
 				},
 			},
-			MaxTokens: 1000,
+			MaxTokens: 4000,
+			// ResponseFormatにJSONを指定する
+			ResponseFormat: &openai.ChatCompletionResponseFormat{
+				Type: openai.ChatCompletionResponseFormatTypeJSONObject, // JSON形式でレスポンスを指定
+			},
 		}
 
 		resp, err := client.CreateChatCompletion(context.Background(), req)
@@ -185,6 +202,7 @@ func getComicSummaries(titles []string, imageUrls []string, apiKey string) []ent
 		jsonData := resp.Choices[0].Message.Content
 		// jsonDataの先頭に```のような不要な文字が含まれていることがあるため不要な文字を全て削除
 		jsonData = strings.ReplaceAll(jsonData, "`", "")
+		log.Printf("output: %s\n%s", title, jsonData)
 
 		var tempData map[string]interface{}
 		if err := json.Unmarshal([]byte(jsonData), &tempData); err != nil {
@@ -198,7 +216,7 @@ func getComicSummaries(titles []string, imageUrls []string, apiKey string) []ent
 		}
 
 		comic := entity.Comic{
-			ID:         fmt.Sprintf("%d", i+1),
+			ID:         i + 1,
 			Title:      title,
 			Synopsis:   getString(tempData, "Synopsis"),
 			Attraction: getString(tempData, "Attraction"),
@@ -253,13 +271,33 @@ func storeComicData(mangaData []entity.Comic) {
 		}
 
 		_, err = svc.PutItem(context.TODO(), &dynamodb.PutItemInput{
-			TableName: aws.String("ComicSummaries"),
-			Item:      item,
+			TableName:           aws.String("ComicSummaries"),
+			Item:                item,
+			ConditionExpression: aws.String("attribute_not_exists(ID)"),
 		})
 		if err != nil {
-			log.Fatalf("Error putting item into DynamoDB: %v", err)
+			// If item exists, update it instead of adding a new item
+			_, err = svc.UpdateItem(context.TODO(), &dynamodb.UpdateItemInput{
+				TableName: aws.String("ComicSummaries"),
+				Key: map[string]types.AttributeValue{
+					"ID":    &types.AttributeValueMemberN{Value: string(manga.ID)},
+					"Title": &types.AttributeValueMemberS{Value: manga.Title},
+				},
+				UpdateExpression: aws.String("set Synopsis = :s, Attraction = :a, Spoilers = :sp, Genre = :g, Characters = :c, ImagePath = :ip"),
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":s":  &types.AttributeValueMemberS{Value: manga.Synopsis},
+					":a":  &types.AttributeValueMemberS{Value: manga.Attraction},
+					":sp": &types.AttributeValueMemberS{Value: manga.Spoilers},
+					":g":  &types.AttributeValueMemberS{Value: manga.Genre},
+					":c":  &types.AttributeValueMemberS{Value: manga.Characters},
+					":ip": &types.AttributeValueMemberS{Value: manga.ImagePath},
+				},
+			})
+			if err != nil {
+				log.Fatalf("Error updating item in DynamoDB: %v", err)
+			}
 		}
 	}
 
-	fmt.Println("データの追加が完了しました。")
+	fmt.Println("データの追加および更新が完了しました。")
 }
